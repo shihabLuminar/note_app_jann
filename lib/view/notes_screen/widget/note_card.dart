@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:note_app_jan/controller/notes_screen_controller.dart';
 import 'package:note_app_jan/core/constants/color_constants.dart';
+import 'package:share_plus/share_plus.dart';
 
 class NoteCard extends StatelessWidget {
   const NoteCard({
@@ -50,7 +51,15 @@ class NoteCard extends StatelessWidget {
           SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            children: [Text(date), SizedBox(width: 20), Icon(Icons.share)],
+            children: [
+              Text(date),
+              SizedBox(width: 20),
+              InkWell(
+                  onTap: () {
+                    Share.share("$title\n$des");
+                  },
+                  child: Icon(Icons.share))
+            ],
           )
         ],
       ),

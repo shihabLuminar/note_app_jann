@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:note_app_jan/controller/notes_screen_controller.dart';
 import 'package:note_app_jan/view/notes_screen/widget/note_card.dart';
 
@@ -10,9 +12,16 @@ class NotesScreen extends StatefulWidget {
 }
 
 class _NotesScreenState extends State<NotesScreen> {
+  @override
+  void initState() {
+    NoteScreenController.getInitKeys();
+    super.initState();
+  }
+
   TextEditingController titleController = TextEditingController();
   TextEditingController desController = TextEditingController();
   TextEditingController dateController = TextEditingController();
+  static var myBox = Hive.box("noteBox");
 
   int selectedClrIndex = 0;
   @override
@@ -24,30 +33,33 @@ class _NotesScreenState extends State<NotesScreen> {
       ),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        itemBuilder: (context, index) => NoteCard(
-          title: NoteScreenController.notesList[index]["title"],
-          date: NoteScreenController.notesList[index]["date"],
-          des: NoteScreenController.notesList[index]["des"],
-          clrindex: NoteScreenController.notesList[index]["colorIndex"],
-          onDeletePressed: () {
-            NoteScreenController.deleteNote(index);
-            setState(() {});
-          },
-          onEditPressed: () {
-            titleController.text =
-                NoteScreenController.notesList[index]["title"];
-            desController.text = NoteScreenController.notesList[index]["des"];
+        itemBuilder: (context, index) {
+          final currentKey = NoteScreenController.notesListKeys[index];
+          final currentElement = NoteScreenController.myBox.get(currentKey);
+          return NoteCard(
+            title: currentElement["title"],
+            date: currentElement["date"],
+            des: currentElement["des"],
+            clrindex: currentElement["colorIndex"],
+            onDeletePressed: () async {
+              await NoteScreenController.deleteNote(currentKey);
+              setState(() {});
+            },
+            onEditPressed: () {
+              titleController.text = currentElement["title"];
+              desController.text = currentElement["des"];
 
-            dateController.text = NoteScreenController.notesList[index]["date"];
+              dateController.text = currentElement["date"];
 
-            selectedClrIndex =
-                NoteScreenController.notesList[index]["colorIndex"];
+              selectedClrIndex = currentElement["colorIndex"];
 
-            customBottomSheet(context: context, isEdit: true, index: index);
-          },
-        ),
+              customBottomSheet(
+                  context: context, isEdit: true, currentKey: currentKey);
+            },
+          );
+        },
         separatorBuilder: (context, index) => const SizedBox(height: 10),
-        itemCount: NoteScreenController.notesList.length,
+        itemCount: NoteScreenController.notesListKeys.length,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -67,7 +79,7 @@ class _NotesScreenState extends State<NotesScreen> {
 
   // to build bottom sheet
   Future<dynamic> customBottomSheet(
-      {required BuildContext context, bool isEdit = false, int? index}) {
+      {required BuildContext context, bool isEdit = false, var currentKey}) {
     return showModalBottomSheet(
       backgroundColor: Colors.grey.shade800,
       isScrollControlled: true,
@@ -111,6 +123,7 @@ class _NotesScreenState extends State<NotesScreen> {
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
+                  readOnly: true,
                   controller: dateController,
                   decoration: InputDecoration(
                       hintText: "Date",
@@ -119,7 +132,19 @@ class _NotesScreenState extends State<NotesScreen> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12)),
                       suffixIcon: InkWell(
-                          onTap: () {},
+                          onTap: () async {
+                            final selectedDateTime = await showDatePicker(
+                                context: context,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2030));
+                            if (selectedDateTime != null) {
+                              String formatedDate =
+                                  DateFormat("yMMMMd").format(selectedDateTime);
+                              dateController.text = formatedDate.toString();
+                            }
+
+                            bottomSetState(() {});
+                          },
                           child: Icon(
                             Icons.date_range_rounded,
                             color: Colors.black,
@@ -153,16 +178,16 @@ class _NotesScreenState extends State<NotesScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     InkWell(
-                      onTap: () {
+                      onTap: () async {
                         if (isEdit == true) {
-                          NoteScreenController.editNote(
-                              index: index!,
+                          await NoteScreenController.editNote(
+                              key: currentKey,
                               title: titleController.text,
                               des: desController.text,
                               date: dateController.text,
                               clrIndex: selectedClrIndex);
                         } else {
-                          NoteScreenController.addNote(
+                          await NoteScreenController.addNote(
                               title: titleController.text,
                               des: desController.text,
                               date: dateController.text,
